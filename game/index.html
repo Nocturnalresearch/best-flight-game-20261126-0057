@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="data:,">
+<title>Meridian Ridge Run</title>
+<style>
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #0b1520; font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  #game { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
+  #status { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  .hidden { display: none !important; }
+
+  /* ---- HUD ---- */
+  #hud { position: fixed; inset: 0; pointer-events: none; color: #eaf6ff; z-index: 5; }
+  #hud .panel { background: rgba(8, 18, 30, 0.55); border: 1px solid rgba(234, 246, 255, 0.25); border-radius: 8px; padding: 8px 12px; }
+  .hud-tl { position: absolute; top: 14px; left: 14px; font-weight: 700; font-size: 17px; letter-spacing: 0.04em; text-shadow: 0 1px 4px rgba(0,0,0,0.7); }
+  .hud-tl .sub { font-size: 13px; color: #9fc3dd; font-weight: 600; margin-top: 2px; }
+  .hud-tl .warn { color: #ffb02e; }
+  .hud-tr { position: absolute; top: 14px; right: 14px; text-align: right; font-weight: 700; font-size: 19px; letter-spacing: 0.03em; text-shadow: 0 1px 4px rgba(0,0,0,0.7); }
+  .hud-tr .sub { font-size: 13px; color: #9fc3dd; font-weight: 600; }
+  #hud-compass { position: absolute; top: 14px; left: 50%; transform: translateX(-50%); border: 1px solid rgba(234,246,255,0.25); border-radius: 6px; }
+  .hud-bl { position: absolute; left: 14px; bottom: 14px; display: flex; gap: 12px; align-items: flex-end; }
+  #hud-horizon { border: 1px solid rgba(234,246,255,0.35); border-radius: 50%; background: rgba(8,18,30,0.55); }
+  .hud-thr { display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: 12px; font-weight: 700; color: #9fc3dd; }
+  .thr-track { width: 14px; height: 110px; background: rgba(8,18,30,0.6); border: 1px solid rgba(234,246,255,0.35); border-radius: 7px; display: flex; flex-direction: column-reverse; overflow: hidden; }
+  #hud-thr-fill { width: 100%; height: 0%; background: linear-gradient(to top, #37d67a, #ffc93c); }
+  #hud-vsi { font-size: 13px; font-weight: 700; color: #eaf6ff; text-shadow: 0 1px 4px rgba(0,0,0,0.7); margin-bottom: 6px; }
+  .hud-ring { position: absolute; bottom: 16px; left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 18px; text-shadow: 0 1px 4px rgba(0,0,0,0.8); }
+  #hud-ring-arrow { font-size: 30px; color: #ffc93c; line-height: 1; display: inline-block; transition: transform 0.15s linear; }
+  #hud-toast { position: absolute; top: 22%; left: 50%; transform: translateX(-50%); font-size: 26px; font-weight: 800; letter-spacing: 0.06em; color: #ffc93c; text-shadow: 0 2px 10px rgba(0,0,0,0.8); white-space: nowrap; }
+
+  /* ---- Screens ---- */
+  .screen { position: fixed; inset: 0; z-index: 10; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; color: #eaf6ff; background: linear-gradient(180deg, rgba(6,14,24,0.20) 0%, rgba(6,14,24,0.55) 100%); }
+  .screen h1 { font-size: 54px; margin: 0 0 6px; letter-spacing: 0.04em; text-shadow: 0 3px 18px rgba(0,0,0,0.8); }
+  .screen h1 .accent { color: #ffc93c; }
+  .screen .tag { font-size: 19px; color: #cfe6f7; margin: 0 0 22px; text-shadow: 0 2px 8px rgba(0,0,0,0.8); }
+  .screen .keys { background: rgba(8,18,30,0.65); border: 1px solid rgba(234,246,255,0.3); border-radius: 10px; padding: 14px 22px; font-size: 15px; line-height: 1.9; text-align: left; }
+  .screen .keys b { color: #ffc93c; }
+  .screen .go { margin-top: 24px; font-size: 19px; font-weight: 800; letter-spacing: 0.08em; color: #0b1520; background: #ffc93c; border: none; border-radius: 999px; padding: 13px 34px; cursor: pointer; }
+  .screen .big-score { font-size: 44px; font-weight: 800; color: #ffc93c; margin: 4px 0 10px; text-shadow: 0 2px 12px rgba(0,0,0,0.8); }
+  .screen .detail { font-size: 17px; color: #cfe6f7; max-width: 560px; line-height: 1.55; margin: 0 0 8px; }
+  .screen .best { font-size: 15px; color: #9fc3dd; font-weight: 700; }
+</style>
+</head>
+<body>
+<canvas id="game" aria-label="Meridian Ridge Run: fly the Kestrel through eight rings over the valley, then land on the runway"></canvas>
+<p id="status" role="status" aria-live="polite"></p>
+
+<div id="hud" class="hidden">
+  <div class="hud-tl panel">
+    <div id="hud-score">SCORE 0</div>
+    <div class="sub" id="hud-rings">RINGS 0/8</div>
+    <div class="sub" id="hud-time">TIME 4:00</div>
+  </div>
+  <canvas id="hud-compass" width="360" height="44"></canvas>
+  <div class="hud-tr panel">
+    <div id="hud-alt">ALT 0 FT</div>
+    <div id="hud-spd">SPD 0 KT</div>
+    <div class="sub" id="hud-hdg">HDG 090°</div>
+  </div>
+  <div class="hud-bl">
+    <canvas id="hud-horizon" width="150" height="150"></canvas>
+    <div>
+      <div id="hud-vsi">V/S +0 FPM</div>
+      <div class="hud-thr">
+        <div class="thr-track"><div id="hud-thr-fill"></div></div>
+        <span id="hud-thr">THR 0%</span>
+      </div>
+    </div>
+  </div>
+  <div class="hud-ring" id="hud-ring">
+    <span id="hud-ring-arrow">➤</span>
+    <span id="hud-ring-text">RING 1 · 0 M</span>
+  </div>
+  <div id="hud-toast" class="hidden"></div>
+</div>
+
+<div id="screen-title" class="screen">
+  <h1>MERIDIAN <span class="accent">RIDGE RUN</span></h1>
+  <p class="tag">Fly the Kestrel through all eight rings over the valley — then bring her home to the runway.</p>
+  <div class="keys">
+    <b>↑ / ↓</b> climb &amp; dive &nbsp;·&nbsp; <b>← / →</b> bank &amp; turn<br>
+    <b>W / S</b> throttle up &amp; down &nbsp;·&nbsp; <b>Space</b> airbrake<br>
+    <b>C</b> chase / cockpit camera &nbsp;·&nbsp; <b>drag</b> look around &nbsp;·&nbsp; <b>P</b> pause &nbsp;·&nbsp; <b>M</b> mute
+  </div>
+  <button class="go" onclick="document.dispatchEvent(new KeyboardEvent('keydown',{code:'Enter'}))">TAKE OFF — PRESS ENTER</button>
+</div>
+
+<div id="screen-pause" class="screen hidden">
+  <h1>PAUSED</h1>
+  <p class="tag">The Kestrel is holding steady. Press P or Enter to keep flying.</p>
+</div>
+
+<div id="screen-over" class="screen hidden">
+  <h1 id="over-title">COURSE COMPLETE</h1>
+  <div class="big-score" id="over-score">SCORE 0</div>
+  <p class="detail" id="over-detail"></p>
+  <p class="best" id="over-best">BEST 0</p>
+  <button class="go" onclick="document.dispatchEvent(new KeyboardEvent('keydown',{code:'Enter'}))">FLY AGAIN — PRESS ENTER</button>
+</div>
+
+<script type="importmap">
+{ "imports": { "three": "./vendor/three/three.module.min.js" } }
+</script>
+<script type="module" src="./src/main.js"></script>
+</body>
+</html>
